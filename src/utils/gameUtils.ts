@@ -1,5 +1,52 @@
 import type { TimeOfDay, MoodLevel, GameConfig, CharacterConfig } from '../types/game'
 
+export interface ActionEstimate {
+  reward: string
+  risk: string
+}
+
+export function estimateChatReward(character: CharacterConfig, mood: number): string {
+  const positiveTopics = character.chatTopics.filter(t => t.affinity > 0)
+  const negativeTopics = character.chatTopics.filter(t => t.affinity < 0)
+  if (positiveTopics.length === 0 && negativeTopics.length === 0) return '好感 ±0'
+  const maxPositive = Math.max(...positiveTopics.map(t => t.affinity))
+  const moodMultiplier = 0.5 + (mood / 100)
+  const estimated = Math.round(maxPositive * moodMultiplier * 10) / 10
+  return `好感 +${estimated} 左右`
+}
+
+export function estimateChatRisk(character: CharacterConfig, mood: number): string {
+  const negativeTopics = character.chatTopics.filter(t => t.affinity < 0)
+  if (negativeTopics.length === 0) return ''
+  const maxNegative = Math.min(...negativeTopics.map(t => t.affinity))
+  const moodMultiplier = 0.5 + (mood / 100)
+  const estimated = Math.round(maxNegative * moodMultiplier * 10) / 10
+  return `话题不合可能好感 ${estimated}`
+}
+
+export function estimateGiftReward(character: CharacterConfig, giftPrice: number, isLiked: boolean): string {
+  let baseChange = giftPrice / 10
+  if (isLiked) baseChange *= 2
+  const avgMood = 60
+  const moodMultiplier = 0.6 + (avgMood / 150)
+  const estimated = Math.round(baseChange * moodMultiplier * 10) / 10
+  return `好感 +${estimated} 左右`
+}
+
+export function estimateGiftRisk(isDisliked: boolean): string {
+  if (!isDisliked) return ''
+  return '对方讨厌此礼物，好感可能下降'
+}
+
+export function estimateWorkReward(min: number, max: number): string {
+  const avg = Math.round((min + max) / 2)
+  return `代币 +${min}~${max}（约${avg}）`
+}
+
+export function estimateWorkRisk(): string {
+  return '所有角色心情 -2'
+}
+
 export function getMoodLevel(mood: number): MoodLevel {
   if (mood >= 80) return 'happy'
   if (mood >= 60) return 'good'

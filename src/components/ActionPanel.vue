@@ -2,6 +2,16 @@
 import { computed } from 'vue'
 import { useGameStore } from '../stores/gameStore'
 import gameConfig from '../config/gameConfig'
+import {
+  estimateChatReward,
+  estimateChatRisk,
+  estimateGiftReward,
+  estimateGiftRisk,
+  estimateWorkReward,
+  estimateWorkRisk,
+  isGiftLiked,
+  isGiftDisliked
+} from '../utils/gameUtils'
 
 const emit = defineEmits<{
   (e: 'open-gift'): void
@@ -12,6 +22,33 @@ const gameStore = useGameStore()
 const canPerformAction = computed(() => gameStore.actionsRemaining > 0)
 
 const hasSelectedCharacter = computed(() => gameStore.selectedCharacterId !== null)
+
+const chatEstimate = computed(() => {
+  if (!gameStore.currentCharacterConfig || !gameStore.currentCharacter) return null
+  return {
+    reward: estimateChatReward(gameStore.currentCharacterConfig, gameStore.currentCharacter.mood),
+    risk: estimateChatRisk(gameStore.currentCharacterConfig, gameStore.currentCharacter.mood)
+  }
+})
+
+const giftEstimate = computed(() => {
+  if (!gameStore.currentCharacterConfig || !gameStore.currentCharacter) return null
+  const avgGiftPrice = Math.round(
+    gameConfig.gifts.reduce((sum, g) => sum + g.price, 0) / gameConfig.gifts.length
+  )
+  const liked = isGiftLiked(gameConfig.gifts[0].id, gameStore.currentCharacterConfig)
+  const disliked = isGiftDisliked(gameConfig.gifts[0].id, gameStore.currentCharacterConfig)
+  return {
+    reward: estimateGiftReward(gameStore.currentCharacterConfig, avgGiftPrice, liked),
+    risk: estimateGiftRisk(disliked),
+    genericRisk: '送错礼物可能降低好感'
+  }
+})
+
+const workEstimate = computed(() => ({
+  reward: estimateWorkReward(gameConfig.workRewards.min, gameConfig.workRewards.max),
+  risk: estimateWorkRisk()
+}))
 
 function doChat() {
   if (!hasSelectedCharacter.value || !canPerformAction.value) return
@@ -41,6 +78,10 @@ function doWork() {
         <span class="action-name">聊天</span>
         <span class="action-desc">和角色聊天增进感情</span>
         <span class="action-cost">消耗 1 行动力</span>
+        <template v-if="chatEstimate">
+          <span class="action-reward">📈 {{ chatEstimate.reward }}</span>
+          <span v-if="chatEstimate.risk" class="action-risk">⚠️ {{ chatEstimate.risk }}</span>
+        </template>
       </button>
 
       <button 
@@ -52,6 +93,10 @@ function doWork() {
         <span class="action-name">送礼</span>
         <span class="action-desc">送礼物给喜欢的人</span>
         <span class="action-cost">消耗 1 行动力</span>
+        <template v-if="giftEstimate">
+          <span class="action-reward">📈 {{ giftEstimate.reward }}</span>
+          <span class="action-risk">⚠️ {{ giftEstimate.genericRisk }}</span>
+        </template>
       </button>
 
       <button 
@@ -63,6 +108,8 @@ function doWork() {
         <span class="action-name">打工</span>
         <span class="action-desc">努力工作赚取代币</span>
         <span class="action-cost">消耗 2 行动力</span>
+        <span class="action-reward">📈 {{ workEstimate.reward }}</span>
+        <span class="action-risk">⚠️ {{ workEstimate.risk }}</span>
       </button>
     </div>
 
@@ -149,6 +196,32 @@ function doWork() {
   background: var(--bg-secondary);
   padding: 2px 8px;
   border-radius: 9999px;
+}
+
+.action-reward {
+  font-size: 11px;
+  color: #16a34a;
+  background: #dcfce7;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+[data-theme='dark'] .action-reward {
+  color: #86efac;
+  background: #14532d;
+}
+
+.action-risk {
+  font-size: 11px;
+  color: #d97706;
+  background: #fef3c7;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+[data-theme='dark'] .action-risk {
+  color: #fcd34d;
+  background: #78350f;
 }
 
 .hint {
